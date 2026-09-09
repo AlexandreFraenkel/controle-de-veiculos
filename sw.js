@@ -1,1 +1,3 @@
-self.addEventListener("install",e=>e.waitUntil(caches.open("cv-v9").then(c=>c.addAll(["./","./index.html","./manifest.json","./icon.svg"]))));self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!=="cv-v9").map(k=>caches.delete(k))))));self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request).then(r=>r||caches.match("./index.html")))));
+self.addEventListener("install",e=>e.waitUntil(caches.open("cv-v10").then(c=>c.addAll(["./","./index.html","./manifest.json","./icon.svg"]))));
+self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!=="cv-v10").map(k=>caches.delete(k))))));
+self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request).then(r=>r||caches.match("./index.html")))));
