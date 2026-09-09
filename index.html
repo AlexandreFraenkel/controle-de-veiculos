@@ -41,7 +41,7 @@ label{font-size:13px;font-weight:700;display:block;margin:10px 0 5px}input,selec
 <div class="card"><h3>Integridade do backup</h3><div id="backupInfo"></div></div></section>
 </main>
 <script>
-const KEY='controle_veiculos_v4';let db=load();
+const BUILD='v5';const KEY='controle_veiculos_v5';let db=load();
 const $=id=>document.getElementById(id);
 function base(){return{version:3,vehicles:[],maintenance:[],fuel:[],docs:[]}}
 function load(){try{const raw=localStorage.getItem(KEY);return raw?JSON.parse(raw):base()}catch(e){console.warn('Falha ao ler armazenamento local',e);return base()}}
@@ -68,7 +68,7 @@ async function addVehicle(){
   if(button){button.disabled=true;button.textContent='Salvando…'}
   try{
     let p=null;
-    if($('vphoto').files[0]){const fs=await readFiles(vphoto);p=fs[0]||null}
+    if($('vphoto').files[0]){const fs=await readFiles($('vphoto'));p=fs[0]||null}
     const vehicle={id:uid(),name,model:$('vmodel').value.trim(),year:$('vyear').value,plate:$('vplate').value.trim(),km:Number($('vkm').value)||0,photo:p};
     db.vehicles.push(vehicle);
     if(!persist()){db.vehicles.pop();throw new Error('Não foi possível gravar no armazenamento local.')}
@@ -84,7 +84,7 @@ async function addVehicle(){
     if(button){button.disabled=false;button.textContent='Salvar'}
   }
 }
-async function addMaintenance(){if(!$('mvehicle').value)return alert('Cadastre um veículo primeiro.');let files=await readFiles($('mfiles'));db.maintenance.push({id:uid(),vehicle:$('mvehicle').value,date:$('mdate').value||new Date().toISOString().slice(0,10),km:Number($('mkm').value)||0,service:$('mservice').value,shop:$('mshop').value,value:Number($('mvalue').value)||0,notes:$('mnotes').value,files});['mdate','mkm','mservice','mshop','mvalue','mnotes','$('mfiles')'].forEach(x=>document.getElementById(x).value='');save();alert('Manutenção salva, incluindo anexos.')}
+async function addMaintenance(){if(!$('mvehicle').value)return alert('Cadastre um veículo primeiro.');let files=await readFiles($('mfiles'));db.maintenance.push({id:uid(),vehicle:$('mvehicle').value,date:$('mdate').value||new Date().toISOString().slice(0,10),km:Number($('mkm').value)||0,service:$('mservice').value,shop:$('mshop').value,value:Number($('mvalue').value)||0,notes:$('mnotes').value,files});['mdate','mkm','mservice','mshop','mvalue','mnotes','mfiles'].forEach(x=>document.getElementById(x).value='');save();alert('Manutenção salva, incluindo anexos.')}
 function addFuel(){if(!$('fvehicle').value)return alert('Cadastre um veículo primeiro.');db.fuel.push({id:uid(),vehicle:$('fvehicle').value,date:$('fdate').value||new Date().toISOString().slice(0,10),km:Number($('fkm').value)||0,liters:Number($('fliters').value)||0,value:Number($('fvalue').value)||0,type:$('ftype').value});save()}
 function addDoc(){if(!$('dvehicle').value)return alert('Cadastre um veículo primeiro.');db.docs.push({id:uid(),vehicle:$('dvehicle').value,type:$('dtype').value,date:$('ddate').value,notes:$('dnotes').value});save()}
 function render(){['mvehicle','fvehicle','dvehicle'].forEach(opts);renderVehicles();renderMaint();renderFuel();renderDocs();renderHome();renderBackupInfo()}
