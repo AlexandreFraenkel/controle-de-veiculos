@@ -17,7 +17,7 @@
 
 <section id="home"><div class="card"><h2>Visão geral</h2><small>Os registros e anexos são armazenados localmente no navegador deste aparelho.</small></div><div id="stats" class="grid3"></div><div class="card"><h3>Próximos vencimentos</h3><div id="upcoming"></div></div><div class="card"><h3>Últimas manutenções</h3><div id="recent"></div></div></section>
 
-<section id="vehicles" class="hidden"><div class="card"><h2>Meus veículos</h2><div id="vehiclesList"></div></div>
+<section id="vehicles" class="hidden"><div class="card"><h2>Meus veículos</h2><small>Toque em <b>✏️ Editar dados e fotos</b> no veículo que deseja alterar.</small><div id="vehiclesList"></div></div>
 <div class="card"><h3>Adicionar veículo</h3><label>Nome/apelido *</label><input id="vname" placeholder="Meu carro"><label>Marca/modelo</label><input id="vmodel"><div class="grid"><div><label>Ano</label><input id="vyear" type="number"></div><div><label>Placa</label><input id="vplate"></div></div><label>Quilometragem atual</label><input id="vkm" type="number"><label>Foto do veículo</label><input id="vphoto" type="file" accept="image/*"><div id="photoInfo" class="muted"></div><div class="actions"><button id="saveVehicleBtn" onclick="addVehicle()">Salvar veículo</button></div><p id="saveStatus" class="muted">Dados locais no navegador.</p></div></section>
 
 <section id="maintenance" class="hidden"><div class="card"><h2>Histórico de manutenção</h2><small>Datas passadas são permitidas. Anexe notas fiscais em foto ou PDF.</small><div id="maintList"></div></div>
@@ -39,14 +39,35 @@ function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(
 function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open(DBNAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function load(){let d=await openDB();return new Promise((res,rej)=>{let t=d.transaction(STORE,'readonly'),r=t.objectStore(STORE).get(KEY);r.onsuccess=()=>res(r.result||base());r.onerror=()=>rej(r.error)})}
 async function save(){let d=await openDB();return new Promise((res,rej)=>{let t=d.transaction(STORE,'readwrite');t.objectStore(STORE).put(dbState,KEY);t.oncomplete=()=>res(true);t.onerror=()=>rej(t.error)})}
-async function init(){try{dbState=await load();render()}catch(e){alert('Não foi possível abrir o armazenamento local deste navegador.');console.error(e)}}
+async function init(){
+  try{
+    dbState=await load();
+    // Migrate records from earlier prototype versions when present.
+    if(!dbState.vehicles.length && !dbState.maintenance.length && !dbState.fuel.length && !dbState.docs.length){
+      for(const oldKey of ['controle_veiculos_v5','controle_veiculos_v4','controle_veiculos_v3']){
+        try{
+          const raw=localStorage.getItem(oldKey);
+          if(raw){
+            const old=JSON.parse(raw);
+            if(old && (old.vehicles?.length || old.maintenance?.length || old.fuel?.length || old.docs?.length)){
+              dbState={...base(),...old,version:6};
+              await save();
+              break;
+            }
+          }
+        }catch(_){}
+      }
+    }
+    render()
+  }catch(e){alert('Não foi possível abrir o armazenamento local deste navegador.');console.error(e)}
+}
 function show(x){document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));$(x).classList.remove('hidden');render()}
 function vname(id){return dbState.vehicles.find(v=>v.id===id)?.name||'Veículo'}
 function opts(id){$(id).innerHTML=dbState.vehicles.map(v=>`<option value="${v.id}">${esc(v.name)} — ${esc(v.model||'')}</option>`).join('')||'<option value="">Cadastre um veículo primeiro</option>'}
 async function fileToData(f){return new Promise((ok,no)=>{let r=new FileReader();r.onload=()=>ok({name:f.name,type:f.type,size:f.size,data:r.result});r.onerror=no;r.readAsDataURL(f)})}
 async function readFiles(input){let a=[];for(const f of input.files){if(f.size>15*1024*1024){alert(f.name+' excede 15 MB e não foi incluído.');continue}a.push(await fileToData(f))}return a}
 function render(){if(!dbState)return;['mvehicle','fvehicle','dvehicle'].forEach(opts);renderVehicles();renderMaint();renderFuel();renderDocs();renderHome();renderBackupInfo()}
-function renderVehicles(){$('vehiclesList').innerHTML=dbState.vehicles.map(v=>`<div class="item"><div class="row"><div><b>${esc(v.name)}</b><div class="muted">${esc(v.model)} ${v.year?'· '+v.year:''} ${v.plate?'· '+esc(v.plate):''}</div><small>${Number(v.km||0).toLocaleString('pt-BR')} km</small></div>${v.photo?`<img class="thumb" src="${v.photo.data}">`:''}</div><div class="actions"><button onclick="openEdit('${v.id}')">Editar veículo</button></div></div>`).join('')||'<div class="empty">Nenhum veículo cadastrado.</div>'}
+function renderVehicles(){$('vehiclesList').innerHTML=dbState.vehicles.map(v=>`<div class="item"><div class="row"><div><b>${esc(v.name)}</b><div class="muted">${esc(v.model)} ${v.year?'· '+v.year:''} ${v.plate?'· '+esc(v.plate):''}</div><small>${Number(v.km||0).toLocaleString('pt-BR')} km</small></div>${v.photo?`<img class="thumb" src="${v.photo.data}">`:''}</div><div class="actions"><button onclick="openEdit('${v.id}')">✏️ Editar dados e fotos</button></div></div>`).join('')||'<div class="empty">Nenhum veículo cadastrado.</div>'}
 function renderMaint(){let a=[...dbState.maintenance].sort((x,y)=>y.date.localeCompare(x.date));$('maintList').innerHTML=a.map(m=>`<div class="item"><span class="tag">${esc(vname(m.vehicle))}</span><span class="tag">${esc(m.date)}</span><b>${esc(m.service||'Manutenção')}</b><div>${m.km?m.km.toLocaleString('pt-BR')+' km · ':''}${money(m.value)}</div><small>${esc(m.shop||'')}${m.notes?' · '+esc(m.notes):''}</small><div>${(m.files||[]).map(f=>f.type?.startsWith('image/')?`<img class="thumb" src="${f.data}" title="${esc(f.name)}">`:`<span class="file">📄 ${esc(f.name)}</span>`).join('')}</div></div>`).join('')||'<div class="empty">Nenhuma manutenção cadastrada.</div>'}
 function renderFuel(){let a=[...dbState.fuel].sort((x,y)=>y.date.localeCompare(x.date));$('fuelList').innerHTML=a.map(f=>`<div class="item"><span class="tag">${esc(vname(f.vehicle))}</span><b>${esc(f.date)}</b><div>${Number(f.km).toLocaleString('pt-BR')} km · ${Number(f.liters).toLocaleString('pt-BR',{maximumFractionDigits:2})} L · ${money(f.value)}</div><small>${esc(f.type||'')}</small></div>`).join('')||'<div class="empty">Nenhum abastecimento.</div>'}
 function renderDocs(){let a=[...dbState.docs].sort((x,y)=>x.date.localeCompare(y.date));$('docList').innerHTML=a.map(d=>{let days=Math.ceil((new Date(d.date+'T00:00:00')-new Date())/86400000);return`<div class="item"><span class="tag">${esc(vname(d.vehicle))}</span><b>${esc(d.type)}</b><div>${esc(d.date)} · ${days<0?'vencido há '+Math.abs(days)+' dias':days+' dias restantes'}</div><small>${esc(d.notes||'')}</small></div>`}).join('')||'<div class="empty">Nenhum vencimento.</div>'}
